@@ -52,10 +52,9 @@ class Cartpole(nn.Module):
         th = torch.atan2(sin_th, cos_th)
 
         cart_in = (u + polemass_length * dth**2 * sin_th) / total_mass
-        th_acc = (gravity * sin_th + cos_th * cart_in) / \
-                 (length * (4./3. - masspole * cos_th**2 /
-                                     total_mass))
-        xacc = cart_in + polemass_length * th_acc * cos_th / total_mass
+        th_acc = -(gravity * sin_th + cos_th * cart_in) / \
+                 (length * (masscart/total_mass - masspole * cos_th**2 /total_mass))
+        xacc = (u+polemass_length*sin_th*dth**2+masspole*sin_th*g*cos_th)
 
         x = x + self.dt * dx
         dx = dx + self.dt * xacc
@@ -68,12 +67,4 @@ class Cartpole(nn.Module):
 
         return state
 
-    def get_true_obj(self):
-        q = torch.cat((
-            self.goal_weights,
-            self.ctrl_penalty*torch.ones(self.n_ctrl)
-        ))
-        px = -torch.sqrt(self.goal_weights)*self.goal_state #+ self.mpc_lin
-        p = torch.cat((px, torch.zeros(self.n_ctrl)))
-        return Variable(q), Variable(p)
 

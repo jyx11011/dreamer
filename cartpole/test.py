@@ -19,6 +19,7 @@ def get_state(observation):
     return torch.Tensor([[pos[0], vel[0], pos[1], pos[2], vel[1]]])
 
 if __name__ == "__main__":
+    os.environ['MUJOCO_GL'] = 'egl'
     TIMESTEPS = 10  # T
     N_BATCH = 1
     LQR_ITER = 5
@@ -62,8 +63,10 @@ if __name__ == "__main__":
         action = nominal_actions[0]  # take first planned action
         u_init = torch.cat((nominal_actions[1:], torch.zeros(1, N_BATCH, nu)), dim=0)
 
-        action = np.ones(action_spec.shape)*action[:,0]
+        action = np.ones(action_spec.shape)*action[0,0].item()
         time_step = env.step(action)
         total_reward += time_step.reward
         if render:
-            env.render()
+            env.physics.render(64,64,camera_id=camera)
+print(get_state(time_step.observation))
+print(total_reward)
