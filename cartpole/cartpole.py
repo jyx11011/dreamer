@@ -31,7 +31,7 @@ class Cartpole(nn.Module):
 
         # 0  1      2        3   4
         # x dx cos(th) sin(th) dth
-        self.goal_state = torch.Tensor(  [ 0.,  0.,  -1., 0.,   0.])
+        self.goal_state = torch.Tensor([0.,  0.,  -1., 0.,   0.])
         self.goal_weights = torch.Tensor([0.1, 0.1,  1., 1., 0.1])
         self.ctrl_penalty = 0.001
 
@@ -46,7 +46,7 @@ class Cartpole(nn.Module):
         total_mass = masspole + masscart
         polemass_length = masspole * length
 
-        u = torch.clamp(u[:,], -self.force_mag, self.force_mag)
+        u = torch.clamp(u[:,0], -self.force_mag, self.force_mag)
 
         x, dx, cos_th, sin_th, dth = torch.unbind(state, dim=1)
         th = torch.atan2(sin_th, cos_th)
