@@ -46,7 +46,7 @@ class Cartpole(nn.Module):
         total_mass = masspole + masscart
         polemass_length = masspole * length
 
-        u = torch.clamp(u, -self.force_mag, self.force_mag)
+        u = torch.clamp(u[:,], -self.force_mag, self.force_mag)
 
         x, dx, cos_th, sin_th, dth = torch.unbind(state, dim=1)
         th = torch.atan2(sin_th, cos_th)
@@ -64,7 +64,7 @@ class Cartpole(nn.Module):
 
         state = torch.stack((
             x, dx, torch.cos(th), torch.sin(th), dth
-        ),dim=1)
+        ),1)
 
         return state
 

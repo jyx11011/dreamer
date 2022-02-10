@@ -16,7 +16,7 @@ def get_state(observation):
     obs=dict(observation)
     pos=obs['position']
     vel=obs['velocity']
-    return torch.Tensor([pos[0], vel[0], pos[1], pos[2], vel[1]])
+    return torch.Tensor([[pos[0], vel[0], pos[1], pos[2], vel[1]]])
 
 if __name__ == "__main__":
     TIMESTEPS = 10  # T
@@ -40,7 +40,7 @@ if __name__ == "__main__":
 
     q = torch.cat((
         dynamics.goal_weights,
-        ctrl_penalty * torch.ones(nu)
+        dynamics.ctrl_penalty * torch.ones(nu)
     ))  # nx + nu
     px = -torch.sqrt(dynamics.goal_weights) * dynamics.goal_state
     p = torch.cat((px, torch.zeros(nu)))
@@ -52,7 +52,7 @@ if __name__ == "__main__":
     total_reward = 0
     for i in range(run_iter):
         state = get_state(time_step.observation)
-        ctrl = mpc.MPC(nx, nu, TIMESTEPS, u_lower=dynamics.lower, u_upper=dynamics.higher, lqr_iter=LQR_ITER,
+        ctrl = mpc.MPC(nx, nu, TIMESTEPS, u_lower=dynamics.lower, u_upper=dynamics.upper, lqr_iter=LQR_ITER,
                        exit_unconverged=False, eps=dynamics.mpc_eps,
                        n_batch=N_BATCH, backprop=False, verbose=0, u_init=u_init,
                        grad_method=mpc.GradMethods.AUTO_DIFF)
