@@ -23,7 +23,7 @@ sys.path.append(str(pathlib.Path(__file__).parent))
 import models
 import tools
 import wrappers
-
+from dynamics import MPC_planer
 
 def define_config():
   config = tools.AttrDict()
@@ -102,6 +102,10 @@ class Dreamer(tools.Module):
     self._metrics['expl_amount']  # Create variable for checkpoint.
     self._float = prec.global_policy().compute_dtype
     self._strategy = tf.distribute.MirroredStrategy()
+
+    self.mpc_planer = MPC_planer(config.train_steps, 
+        config.batch_size, self._stoch_size, self._actdim, self._dynamics,
+        action_low=actspace.low, action_high=actspace.high)
     with self._strategy.scope():
       self._dataset = iter(self._strategy.experimental_distribute_dataset(
           load_dataset(datadir, self._c)))
@@ -121,6 +125,7 @@ class Dreamer(tools.Module):
         for train_step in range(n):
           log_images = self._c.log_images and log and train_step == 0
           self.train(next(self._dataset), log_images)
+      self.mpc_planer.set_goal_state()
       if log:
         self._write_summaries()
     action, state = self.policy(obs, state, training)
@@ -138,10 +143,13 @@ class Dreamer(tools.Module):
     embed = self._encode(preprocess(obs, self._c))
     latent, _ = self._dynamics.obs_step(latent, action, embed)
     feat = self._dynamics.get_feat(latent)
+    '''
     if training:
       action = self._actor(feat).sample()
     else:
       action = self._actor(feat).mode()
+    '''
+    action = self._act(feat)
     action = self._exploration(action, training)
     state = (latent, action)
     return action, state
@@ -152,7 +160,7 @@ class Dreamer(tools.Module):
 
   @tf.function()
   def train(self, data, log_images=False):
-    self._strategy.experimental_run_v2(self._train, args=(data, log_images))
+    self._strategy.run(self._train, args=(data, log_images))
 
   def _train(self, data, log_images):
     with tf.GradientTape() as model_tape:
@@ -160,54 +168,21 @@ class Dreamer(tools.Module):
       post, prior = self._dynamics.observe(embed, data['action'])
       feat = self._dynamics.get_feat(post)
       image_pred = self._decode(feat)
-      reward_pred = self._reward(feat)
       likes = tools.AttrDict()
       likes.image = tf.reduce_mean(image_pred.log_prob(data['image']))
-      likes.reward = tf.reduce_mean(reward_pred.log_prob(data['reward']))
-      if self._c.pcont:
-        pcont_pred = self._pcont(feat)
-        pcont_target = self._c.discount * data['discount']
-        likes.pcont = tf.reduce_mean(pcont_pred.log_prob(pcont_target))
-        likes.pcont *= self._c.pcont_scale
       prior_dist = self._dynamics.get_dist(prior)
       post_dist = self._dynamics.get_dist(post)
       div = tf.reduce_mean(tfd.kl_divergence(post_dist, prior_dist))
       div = tf.maximum(div, self._c.free_nats)
       model_loss = self._c.kl_scale * div - sum(likes.values())
       model_loss /= float(self._strategy.num_replicas_in_sync)
-
-    with tf.GradientTape() as actor_tape:
-      imag_feat = self._imagine_ahead(post)
-      reward = self._reward(imag_feat).mode()
-      if self._c.pcont:
-        pcont = self._pcont(imag_feat).mean()
-      else:
-        pcont = self._c.discount * tf.ones_like(reward)
-      value = self._value(imag_feat).mode()
-      returns = tools.lambda_return(
-          reward[:-1], value[:-1], pcont[:-1],
-          bootstrap=value[-1], lambda_=self._c.disclam, axis=0)
-      discount = tf.stop_gradient(tf.math.cumprod(tf.concat(
-          [tf.ones_like(pcont[:1]), pcont[:-2]], 0), 0))
-      actor_loss = -tf.reduce_mean(discount * returns)
-      actor_loss /= float(self._strategy.num_replicas_in_sync)
-
-    with tf.GradientTape() as value_tape:
-      value_pred = self._value(imag_feat)[:-1]
-      target = tf.stop_gradient(returns)
-      value_loss = -tf.reduce_mean(discount * value_pred.log_prob(target))
-      value_loss /= float(self._strategy.num_replicas_in_sync)
-
     model_norm = self._model_opt(model_tape, model_loss)
-    actor_norm = self._actor_opt(actor_tape, actor_loss)
-    value_norm = self._value_opt(value_tape, value_loss)
-
+    
     if tf.distribute.get_replica_context().replica_id_in_sync_group == 0:
       if self._c.log_scalars:
         self._scalar_summaries(
             data, feat, prior_dist, post_dist, likes, div,
-            model_loss, value_loss, actor_loss, model_norm, value_norm,
-            actor_norm)
+            model_loss, model_norm)
       if tf.equal(log_images, True):
         self._image_summaries(data, embed, image_pred)
 
@@ -221,23 +196,12 @@ class Dreamer(tools.Module):
     self._dynamics = models.RSSM(
         self._c.stoch_size, self._c.deter_size, self._c.deter_size)
     self._decode = models.ConvDecoder(self._c.cnn_depth, cnn_act)
-    self._reward = models.DenseDecoder((), 2, self._c.num_units, act=act)
-    if self._c.pcont:
-      self._pcont = models.DenseDecoder(
-          (), 3, self._c.num_units, 'binary', act=act)
-    self._value = models.DenseDecoder((), 3, self._c.num_units, act=act)
-    self._actor = models.ActionDecoder(
-        self._actdim, 4, self._c.num_units, self._c.action_dist,
-        init_std=self._c.action_init_std, act=act)
-    model_modules = [self._encode, self._dynamics, self._decode, self._reward]
-    if self._c.pcont:
-      model_modules.append(self._pcont)
+    
+    model_modules = [self._encode, self._dynamics, self._decode]
     Optimizer = functools.partial(
         tools.Adam, wd=self._c.weight_decay, clip=self._c.grad_clip,
         wdpattern=self._c.weight_decay_pattern)
     self._model_opt = Optimizer('model', model_modules, self._c.model_lr)
-    self._value_opt = Optimizer('value', [self._value], self._c.value_lr)
-    self._actor_opt = Optimizer('actor', [self._actor], self._c.actor_lr)
     # Do a train step to initialize all variables, including optimizer
     # statistics. Ideally, we would use batch size zero, but that doesn't work
     # in multi-GPU mode.
@@ -267,35 +231,35 @@ class Dreamer(tools.Module):
           action)
     raise NotImplementedError(self._c.expl)
 
+  def _act(self, state):
+    return self.mpc_planer.get_next_action(state)
+
+  '''
   def _imagine_ahead(self, post):
     if self._c.pcont:  # Last step could be terminal.
       post = {k: v[:, :-1] for k, v in post.items()}
     flatten = lambda x: tf.reshape(x, [-1] + list(x.shape[2:]))
     start = {k: flatten(v) for k, v in post.items()}
-    policy = lambda state: self._actor(
-        tf.stop_gradient(self._dynamics.get_feat(state))).sample()
+    
+    policy = lambda state: self._act(tf.stop_gradient(self._dynamics.get_feat(state)))
     states = tools.static_scan(
         lambda prev, _: self._dynamics.img_step(prev, policy(prev)),
         tf.range(self._c.horizon), start)
     imag_feat = self._dynamics.get_feat(states)
     return imag_feat
 
+  '''
+
   def _scalar_summaries(
       self, data, feat, prior_dist, post_dist, likes, div,
-      model_loss, value_loss, actor_loss, model_norm, value_norm,
-      actor_norm):
+      model_loss, model_norm):
     self._metrics['model_grad_norm'].update_state(model_norm)
-    self._metrics['value_grad_norm'].update_state(value_norm)
-    self._metrics['actor_grad_norm'].update_state(actor_norm)
     self._metrics['prior_ent'].update_state(prior_dist.entropy())
     self._metrics['post_ent'].update_state(post_dist.entropy())
     for name, logprob in likes.items():
       self._metrics[name + '_loss'].update_state(-logprob)
     self._metrics['div'].update_state(div)
     self._metrics['model_loss'].update_state(model_loss)
-    self._metrics['value_loss'].update_state(value_loss)
-    self._metrics['actor_loss'].update_state(actor_loss)
-    self._metrics['action_ent'].update_state(self._actor(feat).entropy())
 
   def _image_summaries(self, data, embed, image_pred):
     truth = data['image'][:6] + 0.5
@@ -331,8 +295,6 @@ def preprocess(obs, config):
   obs = obs.copy()
   with tf.device('cpu:0'):
     obs['image'] = tf.cast(obs['image'], dtype) / 255.0 - 0.5
-    clip_rewards = dict(none=lambda x: x, tanh=tf.tanh)[config.clip_rewards]
-    obs['reward'] = clip_rewards(obs['reward'])
   return obs
 
 

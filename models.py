@@ -80,6 +80,20 @@ class RSSM(tools.Module):
     prior = {'mean': mean, 'std': std, 'stoch': stoch, 'deter': deter}
     return prior
 
+  @tf.function
+  def transition(self, feat, action):
+    state_stoch, state_deter=tf.split(feat, 2, axis = -1)
+    x = tf.concat([state_stoch, prev_action], -1)
+    x = self.get('img1', tfkl.Dense, self._hidden_size, self._activation)(x)
+    x, deter = self._cell(x, [state_deter])
+    deter = deter[0]  # Keras wraps the state in a list.
+    x = self.get('img2', tfkl.Dense, self._hidden_size, self._activation)(x)
+    x = self.get('img3', tfkl.Dense, 2 * self._stoch_size, None)(x)
+    mean, std = tf.split(x, 2, -1)
+    std = tf.nn.softplus(std) + 0.1
+    stoch = self.get_dist({'mean': mean, 'std': std}).sample()
+    return tf.concat([stoch, deter], -1)
+
 
 class ConvEncoder(tools.Module):
 
@@ -116,7 +130,7 @@ class ConvDecoder(tools.Module):
     mean = tf.reshape(x, tf.concat([tf.shape(features)[:-1], self._shape], 0))
     return tfd.Independent(tfd.Normal(mean, 1), len(self._shape))
 
-
+'''
 class DenseDecoder(tools.Module):
 
   def __init__(self, shape, layers, units, dist='normal', act=tf.nn.elu):
@@ -174,3 +188,4 @@ class ActionDecoder(tools.Module):
     else:
       raise NotImplementedError(dist)
     return dist
+'''
