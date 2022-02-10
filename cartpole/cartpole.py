@@ -54,7 +54,7 @@ class Cartpole(nn.Module):
         cart_in = (u + polemass_length * dth**2 * sin_th) / total_mass
         th_acc = -(gravity * sin_th + cos_th * cart_in) / \
                  (length * (masscart/total_mass - masspole * cos_th**2 /total_mass))
-        xacc = (u+polemass_length*sin_th*dth**2+masspole*sin_th*g*cos_th)
+        xacc = (u+polemass_length*sin_th*dth**2+masspole*sin_th*gravity*cos_th)
 
         x = x + self.dt * dx
         dx = dx + self.dt * xacc

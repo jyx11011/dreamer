@@ -3,7 +3,7 @@ from dm_control import suite
 import logging
 import math
 import time
-
+import os
 import gym
 import numpy as np
 import torch
@@ -20,7 +20,7 @@ def get_state(observation):
 
 if __name__ == "__main__":
     os.environ['MUJOCO_GL'] = 'egl'
-    TIMESTEPS = 10  # T
+    TIMESTEPS = 50  # T
     N_BATCH = 1
     LQR_ITER = 5
 
@@ -36,7 +36,6 @@ if __name__ == "__main__":
 
     u_init = None
     render = True
-    retrain_after_iter = 50
     run_iter = 500
 
     q = torch.cat((
@@ -56,7 +55,8 @@ if __name__ == "__main__":
         ctrl = mpc.MPC(nx, nu, TIMESTEPS, u_lower=dynamics.lower, u_upper=dynamics.upper, lqr_iter=LQR_ITER,
                        exit_unconverged=False, eps=dynamics.mpc_eps,
                        n_batch=N_BATCH, backprop=False, verbose=0, u_init=u_init,
-                       grad_method=mpc.GradMethods.AUTO_DIFF)
+                       grad_method=mpc.GradMethods.AUTO_DIFF,
+                       linesearch_decay=dynamics.linesearch_decay)
 
         # compute action based on current state, dynamics, and cost
         nominal_states, nominal_actions, nominal_objs = ctrl(state, cost, dynamics)
@@ -67,6 +67,8 @@ if __name__ == "__main__":
         time_step = env.step(action)
         total_reward += time_step.reward
         if render:
-            env.physics.render(64,64,camera_id=camera)
+            env.physics.render(64,64)
 print(get_state(time_step.observation))
 print(total_reward)
+
+#export MUJOCO_GL=egl
