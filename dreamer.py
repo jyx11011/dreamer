@@ -143,7 +143,7 @@ class Dreamer(tools.Module):
       latent, action = state
     embed = self._encode(preprocess(obs, self._c))
     latent, _ = self._dynamics.obs_step(latent, action, embed)
-    feat = self._dynamics.get_feat(latent)
+    feat = tf.stop_gradient(self._dynamics.get_feat(latent))
     '''
     if training:
       action = self._actor(feat).sample()
@@ -168,8 +168,6 @@ class Dreamer(tools.Module):
       embed = self._encode(data)
       post, prior = self._dynamics.observe(embed, data['action'])
       feat = self._dynamics.get_feat(post)
-
-      print('test')
       image_pred = self._decode(feat)
       likes = tools.AttrDict()
       likes.image = tf.reduce_mean(image_pred.log_prob(data['image']))
@@ -246,7 +244,7 @@ class Dreamer(tools.Module):
     action = tf.zeros((len(obs['image']), self._actdim), self._float)
     embed = self._encode(preprocess(obs, self._c))
     latent, _ = self._dynamics.obs_step(latent, action, embed)
-    feat = self._dynamics.get_feat(latent)
+    feat = tf.stop_gradient(self._dynamics.get_feat(latent))
     return feat
 
   '''
