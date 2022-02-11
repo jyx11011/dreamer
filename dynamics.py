@@ -1,5 +1,6 @@
 import gym
 import numpy as np
+import tensorflow as tf
 import torch
 import torch.autograd
 from mpc import mpc
@@ -39,7 +40,7 @@ class MPC_planer:
 
     def set_goal_state(self, state):
         state = state.numpy()
-        goal_state = torch.tensor(state, dtype=self._dtype).view(1, -1)
+        goal_state = torch.tensor(state, dtype=self._dtype).view(1, -1)[0]
         px = -torch.sqrt(self._goal_weights) * goal_state
         p = torch.cat((px, torch.zeros(self._nu, dtype=self._dtype)))
         p = p.repeat(self._timesteps, self._n_batch, 1)
