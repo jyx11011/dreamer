@@ -110,7 +110,7 @@ class Dreamer(tools.Module):
       self._build_model()
     
     self.mpc_planer = MPC_planer(config.train_steps, 
-        config.batch_size, self._c.stoch_size, self._actdim, self._dynamics,
+        config.batch_size, self._c.stoch_size + self._c.deter_size, self._actdim, self._dynamics,
         action_low=actspace.low, action_high=actspace.high)
     self._goal_state_obs = preprocess(load_goal_state(config), config)
     self.mpc_planer.set_goal_state(self.zero_action(self._goal_state_obs))
