@@ -6,8 +6,8 @@ task="swingup"
 
 env = suite.load(domain_name=domain, task_name=task)
 camera = dict(quadruped=2).get(domain, 0)
-f=domain+"_"+task+".txt"
+f=domain+"_"+task
 obs=env.physics.render(64,64,camera_id=camera)
-print(obs.shape)
-np.savetext(f,obs)
+
+np.save(f,obs)
 #export MUJOCO_GL=egl
