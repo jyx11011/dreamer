@@ -104,14 +104,14 @@ class Dreamer(tools.Module):
     self._float = prec.global_policy().compute_dtype
     self._strategy = tf.distribute.MirroredStrategy()
 
-    self.mpc_planer = MPC_planer(config.train_steps, 
-        config.batch_size, self._stoch_size, self._actdim, self._dynamics,
-        action_low=actspace.low, action_high=actspace.high)
     with self._strategy.scope():
       self._dataset = iter(self._strategy.experimental_distribute_dataset(
           load_dataset(datadir, self._c)))
       self._build_model()
     
+    self.mpc_planer = MPC_planer(config.train_steps, 
+        config.batch_size, self._c.stoch_size, self._actdim, self._dynamics,
+        action_low=actspace.low, action_high=actspace.high)
     self._goal_state_obs = preprocess(load_goal_state(config), config)
     self.mpc_planer.set_goal_state(self._encode(self._goal_state_obs))
 

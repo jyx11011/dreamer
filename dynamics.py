@@ -20,8 +20,8 @@ class MPC_planer:
         self._iter = iter
         self._nx = nx
         self._nu = nu
-        self._action_low = torch.ones([timestamps, n_batch, nu]) * action_low
-        self._action_high = torch.ones([timestamps, n_batch, nu]) * action_high
+        self._action_low = torch.ones([timesteps, n_batch, nu]) * action_low
+        self._action_high = torch.ones([timesteps, n_batch, nu]) * action_high
         self._eps = eps
         dtype=torch.float64
 
