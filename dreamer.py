@@ -24,6 +24,7 @@ import models
 import tools
 import wrappers
 from dynamics import MPC_planer
+from goal_state import load_goal_state
 
 def define_config():
   config = tools.AttrDict()
@@ -110,6 +111,9 @@ class Dreamer(tools.Module):
       self._dataset = iter(self._strategy.experimental_distribute_dataset(
           load_dataset(datadir, self._c)))
       self._build_model()
+    
+    self._goal_state_obs = preprocess(load_goal_state(config), config)
+    self.mpc_planer.set_goal_state(self._encode(self._goal_state_obs))
 
   def __call__(self, obs, reset, state=None, training=True):
     step = self._step.numpy().item()
@@ -125,7 +129,7 @@ class Dreamer(tools.Module):
         for train_step in range(n):
           log_images = self._c.log_images and log and train_step == 0
           self.train(next(self._dataset), log_images)
-      self.mpc_planer.set_goal_state()
+      self.mpc_planer.set_goal_state(self._encode(self._goal_state_obs))
       if log:
         self._write_summaries()
     action, state = self.policy(obs, state, training)
