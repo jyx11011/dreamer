@@ -109,9 +109,6 @@ class Dreamer(tools.Module):
           load_dataset(datadir, self._c)))
       self._build_model()
     
-    self.mpc_planer = MPC_planer(config.train_steps, 
-        config.batch_size, self._c.stoch_size + self._c.deter_size, self._actdim, self._dynamics,
-        action_low=actspace.low, action_high=actspace.high)
     self._goal_state_obs = preprocess(load_goal_state(config), config)
     self.mpc_planer.set_goal_state(self.zero_action(self._goal_state_obs))
 
@@ -171,6 +168,8 @@ class Dreamer(tools.Module):
       embed = self._encode(data)
       post, prior = self._dynamics.observe(embed, data['action'])
       feat = self._dynamics.get_feat(post)
+
+      print('test')
       image_pred = self._decode(feat)
       likes = tools.AttrDict()
       likes.image = tf.reduce_mean(image_pred.log_prob(data['image']))
@@ -209,6 +208,10 @@ class Dreamer(tools.Module):
     # Do a train step to initialize all variables, including optimizer
     # statistics. Ideally, we would use batch size zero, but that doesn't work
     # in multi-GPU mode.
+
+    self.mpc_planer = MPC_planer(config.train_steps, 
+        config.batch_size, self._c.stoch_size + self._c.deter_size, self._actdim, self._dynamics,
+        action_low=actspace.low, action_high=actspace.high)
     self.train(next(self._dataset))
 
   def _exploration(self, action, training):
