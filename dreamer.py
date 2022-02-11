@@ -113,7 +113,7 @@ class Dreamer(tools.Module):
         config.batch_size, self._c.stoch_size, self._actdim, self._dynamics,
         action_low=actspace.low, action_high=actspace.high)
     self._goal_state_obs = preprocess(load_goal_state(config), config)
-    self.mpc_planer.set_goal_state(self._encode(self._goal_state_obs[None,:]))
+    self.mpc_planer.set_goal_state(self.zero_action(self._goal_state_obs))
 
   def __call__(self, obs, reset, state=None, training=True):
     step = self._step.numpy().item()
@@ -129,7 +129,7 @@ class Dreamer(tools.Module):
         for train_step in range(n):
           log_images = self._c.log_images and log and train_step == 0
           self.train(next(self._dataset), log_images)
-      self.mpc_planer.set_goal_state(self._encode(self._goal_state_obs))
+      self.mpc_planer.set_goal_state(self.zero_action(self._goal_state_obs))
       if log:
         self._write_summaries()
     action, state = self.policy(obs, state, training)
@@ -237,6 +237,14 @@ class Dreamer(tools.Module):
 
   def _act(self, state):
     return self.mpc_planer.get_next_action(state)
+
+  def zero_action(self, obs):
+    latent = self._dynamics.initial(len(obs['image']))
+    action = tf.zeros((len(obs['image']), self._actdim), self._float)
+    embed = self._encode(preprocess(obs, self._c))
+    latent, _ = self._dynamics.obs_step(latent, action, embed)
+    feat = self._dynamics.get_feat(latent)
+    return feat
 
   '''
   def _imagine_ahead(self, post):

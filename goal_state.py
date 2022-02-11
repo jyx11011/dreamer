@@ -6,4 +6,4 @@ def load_goal_state(config):
     if domain == 'cup':
       domain = 'ball_in_cup'
     goal_state_obs = np.load('./'+domain+'/'+domain+'_'+task+'.npy')
-    return {'image':goal_state_obs}
+    return {'image':[goal_state_obs]}
