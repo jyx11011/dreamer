@@ -113,7 +113,7 @@ class Dreamer(tools.Module):
         config.batch_size, self._c.stoch_size, self._actdim, self._dynamics,
         action_low=actspace.low, action_high=actspace.high)
     self._goal_state_obs = preprocess(load_goal_state(config), config)
-    self.mpc_planer.set_goal_state(self._encode(self._goal_state_obs))
+    self.mpc_planer.set_goal_state(self._encode(self._goal_state_obs[None,:]))
 
   def __call__(self, obs, reset, state=None, training=True):
     step = self._step.numpy().item()

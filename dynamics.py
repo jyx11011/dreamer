@@ -38,7 +38,7 @@ class MPC_planer:
         self._dynamics = Dynamics(dynamics)
 
     def set_goal_state(self, state):
-        goal_state = torch.tensor(state.copy(), dtype=self._dtype).view(1, -1)
+        goal_state = torch.tensor(state, dtype=self._dtype).view(1, -1)
         px = -torch.sqrt(self._goal_weights) * goal_state
         p = torch.cat((px, torch.zeros(self._nu, dtype=self._dtype)))
         p = p.repeat(self._timesteps, self._n_batch, 1)
