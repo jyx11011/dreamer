@@ -38,6 +38,7 @@ class MPC_planer:
         self._dynamics = Dynamics(dynamics)
 
     def set_goal_state(self, state):
+        state = state.numpy()
         goal_state = torch.tensor(state, dtype=self._dtype).view(1, -1)
         px = -torch.sqrt(self._goal_weights) * goal_state
         p = torch.cat((px, torch.zeros(self._nu, dtype=self._dtype)))
@@ -46,7 +47,7 @@ class MPC_planer:
         self._u_init = None
 
     def get_next_action(self, state):
-        state = state.copy()
+        state = state.numpy()
         state = torch.tensor(state, dtype=dtype).view(1, -1)
         
         ctrl = mpc.MPC(self._nx, self._nu, self._timesteps, 
