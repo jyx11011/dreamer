@@ -209,9 +209,9 @@ class Dreamer(tools.Module):
     # statistics. Ideally, we would use batch size zero, but that doesn't work
     # in multi-GPU mode.
 
-    self.mpc_planer = MPC_planer(config.train_steps, 
-        config.batch_size, self._c.stoch_size + self._c.deter_size, self._actdim, self._dynamics,
-        action_low=actspace.low, action_high=actspace.high)
+    self.mpc_planer = MPC_planer(self._c.train_steps, 
+        self._c.batch_size, self._c.stoch_size + self._c.deter_size, self._actdim, self._dynamics,
+        action_low=self._actspace.low, action_high=self._actspace.high)
     self.train(next(self._dataset))
 
   def _exploration(self, action, training):
