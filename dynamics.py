@@ -28,15 +28,17 @@ class MPC_planer:
         self._dtype=torch.float64
 
         if goal_weights is None:
-            goal_weights = torch.ones(nx, dtype=dtype)
+            goal_weights = torch.ones(nx, dtype=self._dtype)
+        self._goal_weights = goal_weights
         q = torch.cat((
             goal_weights,
-            ctrl_penalty * torch.ones(nu, dtype=dtype)
+            ctrl_penalty * torch.ones(nu, dtype=self._dtype)
         ))
         self._Q = torch.diag(q).repeat(timesteps, n_batch, 1, 1)  # T x B x nx+nu x nx+nu
         self._dynamics = Dynamics(dynamics)
 
-    def set_goal_state(self, goal_state=None):
+    def set_goal_state(self, state):
+        goal_state = torch.tensor(state.copy(), dtype=self._dtype).view(1, -1)
         px = -torch.sqrt(self._goal_weights) * goal_state
         p = torch.cat((px, torch.zeros(self._nu, dtype=self._dtype)))
         p = p.repeat(self._timesteps, self._n_batch, 1)
