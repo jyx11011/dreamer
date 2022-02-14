@@ -5,7 +5,7 @@ import torch
 import torch.autograd
 from mpc import mpc
 
-class Dynamics(torch.nn.Module):
+class Dynamics():
     def __init__(self, dynamics):
         super().__init__()
         self._dynamics=dynamics
