@@ -48,8 +48,7 @@ class MPC_planer:
         self._u_init = None
 
     def get_next_action(self, state):
-        with tf.compat.v1.Session() as sess:
-            state = state.eval(session=sess)
+        state = state.numpy()
         state = torch.tensor(state, dtype=dtype).view(1, -1)
         
         ctrl = mpc.MPC(self._nx, self._nu, self._timesteps, 

@@ -135,7 +135,7 @@ class Dreamer(tools.Module):
     return action, state
 
   @tf.function
-  def policy(self, obs, state, training):
+  def _policy_helper(self, obs, state):
     if state is None:
       latent = self._dynamics.initial(len(obs['image']))
       action = tf.zeros((len(obs['image']), self._actdim), self._float)
@@ -144,12 +144,15 @@ class Dreamer(tools.Module):
     embed = self._encode(preprocess(obs, self._c))
     latent, _ = self._dynamics.obs_step(latent, action, embed)
     feat = tf.stop_gradient(self._dynamics.get_feat(latent))
+
+  def policy(self, obs, state, training):
     '''
     if training:
       action = self._actor(feat).sample()
     else:
       action = self._actor(feat).mode()
     '''
+    feat=_policy_helper(obs, state, training)
     action = self._act(feat)
     action = self._exploration(action, training)
     state = (latent, action)
