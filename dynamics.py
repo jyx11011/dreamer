@@ -12,7 +12,7 @@ class Dynamics(torch.nn.Module):
 
     def forward(self, state, action):
         tf_state = tf.convert_to_tensor([state.numpy()])
-        tf_action = tf.convert_to_tensor([action])
+        tf_action = tf.convert_to_tensor([action.numpy()])
         return self._dynamics.transition(state, action)
 
 class MPC_planer:
@@ -31,13 +31,13 @@ class MPC_planer:
         self._dtype=torch.float16
 
         if goal_weights is None:
-            goal_weights = torch.ones(nx, dtype=self._dtype)
+            goal_weights = torch.ones(nx, dtype=torch.float64)
         self._goal_weights = goal_weights
         q = torch.cat((
             goal_weights,
-            ctrl_penalty * torch.ones(nu, dtype=self._dtype)
+            ctrl_penalty * torch.ones(nu, dtype=torch.float64)
         ))
-        self._Q = torch.diag(q).repeat(timesteps, n_batch, 1, 1)  # T x B x nx+nu x nx+nu
+        self._Q = torch.diag(q).repeat(timesteps, n_batch, 1, 1).type(torch.float16)  # T x B x nx+nu x nx+nu
         self._dynamics = Dynamics(dynamics)
 
     def set_goal_state(self, state):
