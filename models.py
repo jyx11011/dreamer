@@ -83,7 +83,7 @@ class RSSM(tools.Module):
   @tf.function
   def transition(self, feat, action):
     state_stoch, state_deter=tf.split(feat, [self._stoch_size, self._deter_size], axis = -1)
-    x = tf.concat([state_stoch, prev_action], -1)
+    x = tf.concat([state_stoch, action], -1)
     x = self.get('img1', tfkl.Dense, self._hidden_size, self._activation)(x)
     x, deter = self._cell(x, [state_deter])
     deter = deter[0]  # Keras wraps the state in a list.
