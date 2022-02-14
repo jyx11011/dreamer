@@ -133,7 +133,7 @@ class Dreamer(tools.Module):
     if training:
       self._step.assign_add(len(reset) * self._c.action_repeat)
     return action, state
-
+    
   @tf.function
   def _policy_helper(self, obs, state):
     if state is None:
@@ -144,6 +144,7 @@ class Dreamer(tools.Module):
     embed = self._encode(preprocess(obs, self._c))
     latent, _ = self._dynamics.obs_step(latent, action, embed)
     feat = tf.stop_gradient(self._dynamics.get_feat(latent))
+    return feat
 
   def policy(self, obs, state, training):
     '''
@@ -152,7 +153,7 @@ class Dreamer(tools.Module):
     else:
       action = self._actor(feat).mode()
     '''
-    feat=_policy_helper(obs, state, training)
+    feat = self._policy_helper(obs, state)
     action = self._act(feat)
     action = self._exploration(action, training)
     state = (latent, action)
