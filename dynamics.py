@@ -13,7 +13,8 @@ class Dynamics(torch.nn.Module):
     def forward(self, state, action):
         tf_state = tf.convert_to_tensor([state.numpy()])
         tf_action = tf.convert_to_tensor([action.numpy()])
-        return self._dynamics.transition(state, action)
+        next_state = self._dynamics.transition(state, action)
+        return torch.tensor(next_state.numpy(), dtype=torch.float16)
 
 class MPC_planer:
     def __init__(self, timesteps, n_batch, nx, nu, dynamics,
@@ -58,7 +59,7 @@ class MPC_planer:
                         lqr_iter=self._iter, eps=self._eps, n_batch=1,
                         u_init=self._u_init,
                         exit_unconverged=False, backprop=False, verbose=0, 
-                        grad_method=mpc.GradMethods.AUTO_DIFF)
+                        grad_method=mpc.GradMethods.FINITE_DIFF)
 
         nominal_states, nominal_actions, nominal_objs = ctrl(state, self._cost, self._dynamics)
         action = nominal_actions[0] 
