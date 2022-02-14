@@ -49,11 +49,11 @@ class MPC_planer:
 
     def get_next_action(self, state):
         state = state.numpy()
-        state = torch.tensor(state, dtype=dtype).view(1, -1)
+        state = torch.tensor(state, dtype=self._dtype).view(1, -1)
         
         ctrl = mpc.MPC(self._nx, self._nu, self._timesteps, 
                         u_lower=self._action_low, u_upper=self._action_high, 
-                        lqr_iter=self._iter, eps=self._eps, n_batch=self._n_batch,
+                        lqr_iter=self._iter, eps=self._eps, n_batch=1,
                         u_init=self._u_init,
                         exit_unconverged=False, backprop=False, verbose=0, 
                         grad_method=mpc.GradMethods.AUTO_DIFF)
